@@ -51,7 +51,7 @@ const LIB = {};
             const html = document.getElementsByTagName('html')[0];
             body.style.padding = html.style.padding = '0px';
             body.style.margin = html.style.margin = '0px';
-            body.style.overflowX = 'hidden';
+            body.style.overflow = 'hidden';
             this.drawCanvas.canvas.style.width = '100vw';
             this.drawCanvas.canvas.style.height = '100vh';
             if (configs.keyboard)
@@ -209,28 +209,35 @@ const LIB = {};
             let canvas = drawCanvas.canvas;
             let offset = drawCanvas.offset;
             let ctx = drawCanvas.ctx;
+            ctx.clearRect(
+                offset.x,
+                offset.y,
+                canvas.width - offset.x * 2,
+                canvas.height - offset.y * 2
+            );
             this.activeScene.update(delta);
             this.activeScene.render();
             this.updateArr.forEach(func => func(delta));
-            ctx.clearRect(
+            ctx.fillStyle = 'black';
+            ctx.fillRect(
                 0,
                 0,
                 offset.x,
                 canvas.height
             );
-            ctx.clearRect(
+            ctx.fillRect(
                 offset.x,
                 0,
                 canvas.width - offset.x * 2,
                 offset.y
             );
-            ctx.clearRect(
+            ctx.fillRect(
                 canvas.width - offset.x,
                 0,
                 offset.x,
                 canvas.height
             );
-            ctx.clearRect(
+            ctx.fillRect(
                 offset.x,
                 canvas.height - offset.y,
                 canvas.width - offset.x * 2,
@@ -320,6 +327,63 @@ const LIB = {};
         start(game){};
         update(dt){};
         render(){};
+    }
+    class DemoScene extends Scene
+    {
+        width;
+        height;
+        bouncySquare;
+        constructor(game)
+        {
+            super(game);
+            this.bouncySquare = new Hitbox(50,50,0,0);
+            this.bouncySquare.x = 100;
+            this.bouncySquare.y = 100;
+            this.bouncySquare.speedX = 120;
+            this.bouncySquare.speedY = 80;
+            this.width = game.drawCanvas.width;
+            this.height = game.drawCanvas.height;
+        }
+        update(dt)
+        {
+            let bouncySquare = this.bouncySquare;
+            bouncySquare.x += bouncySquare.speedX * dt;
+            bouncySquare.y += bouncySquare.speedY * dt;
+
+            if (bouncySquare.x + bouncySquare.right > this.width)
+            {
+                bouncySquare.speedX *= -1;
+                bouncySquare.x = this.width - bouncySquare.right;
+            }
+            else if (bouncySquare.x + bouncySquare.left < 0)
+            {
+                bouncySquare.speedX *= -1;
+                bouncySquare.x = -bouncySquare.left;
+            }
+
+            if (bouncySquare.y + bouncySquare.bottom > this.height)
+            {
+                bouncySquare.speedY *= -1;
+                bouncySquare.y = this.height - bouncySquare.bottom;
+            }
+            else if (bouncySquare.y + bouncySquare.top < 0)
+            {
+                bouncySquare.speedY *= -1;
+                bouncySquare.y = -bouncySquare.top;
+            }
+        }
+
+        render()
+        {
+            let bouncySquare = this.bouncySquare;
+            this.game.fillRect(
+                bouncySquare.x + bouncySquare.left,
+                bouncySquare.y + bouncySquare.top,
+                bouncySquare.w,
+                bouncySquare.h,
+                'blue'
+            );
+        }
     }
     //#endregion
 
@@ -688,6 +752,7 @@ const LIB = {};
     }
     LIB.math = { appr, actorCollision };
     LIB.debounce = debounce;
+    LIB.DemoScene = DemoScene;
     LIB.MouseManager = MouseManager;
     LIB.Button = Button;
     LIB.Clickable = Clickable;
