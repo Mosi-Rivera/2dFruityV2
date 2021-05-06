@@ -32,6 +32,7 @@ const LIB = {};
         };
         keyboardManager;
         mouseManager;
+        gamepadManager;
         updateArr = new Map();
         raf;
         lastTick;
@@ -58,8 +59,20 @@ const LIB = {};
                 this.addKeyboardManager();
             if (configs.mouse)
                 this.addMouseManager();
+            if (configs.gamepad)
+                this.addGamepadManager();
             this.scenes             = configs.scenes;
             this.activeScene        = new (this.scenes[0])(this);
+        }
+        addGamepadManager()
+        {
+            this.gamepadManager = new GamepadManager(this);
+        }
+        removeGamepadManager()
+        {
+            this.updateArr.delete('gamepad');
+            this.gamepadManager.destroy();
+            this.gamepadManager = null;
         }
         addKeyboardManager()
         {
@@ -452,6 +465,122 @@ const LIB = {};
         }
     }
     //#endregion
+
+    //#region Gamepad
+    class GamepadData
+    {
+        buttons = new Map();
+        axes = [];
+        constructor(gamepad)
+        {
+            for (let i = gamepad.buttons.length; i--;)
+                this.buttons.set(i,new Key());
+            this.axes.length = gamepad.axes.length;
+        }
+        update(gamepad)
+        {
+            let axes = gamepad.axes;
+            this.buttons.forEach((button,i) => button.update(gamepad.buttons[i].pressed));
+            for (let i = axes.length; i--;)
+                this.axes[i] = axes[i];
+        }
+    }
+    class GamepadEvents
+    {
+        disconnect = new Map();
+        connect = new Map();
+        add_connect(func)
+        {
+            let i = 0;
+            while (true)
+            {
+                if (!this.connect.has(i))
+                {
+                    this.connect.set(i,func);
+                    return i;
+                }
+                i++;
+            }
+        }
+        remove_connect(index)
+        {
+            this.connect.delete(index);
+        }
+        add_disconnect(func)
+        {
+            let i = 0;
+            while (true)
+            {
+                if (!this.disconnect.has(i))
+                {
+                    this.disconnect.set(i,func);
+                    return i;
+                }
+                i++;
+            }
+        }
+        remove_disconnect(index)
+        {
+            this.disconnect.delete(index);
+        }
+    }
+    class GamepadManager
+    {
+        gamepads = new Map();
+        events = new GamepadEvents();
+        constructor(game)
+        {
+            document.addEventListener("gamepadconnected", e => this.handler(e,true),false);
+            document.addEventListener("gamepaddisconnect", e => this.handler(e,false),false);
+            game.updateArr.set('gamepad',() => this.update());
+        }
+        destroy()
+        {
+            document.removeEventListener("gamepadconnected", e => this.handler(e,true),false);
+            document.removeEventListener("gamepaddisconnect", e => this.handler(e,false),false);
+        }
+        handler(event,connecting)
+        {
+            let gamepad = event.gamepad;
+            if (connecting)
+            {
+                let gamepad_data = this.addGamepad(gamepad);
+                this.events.connect.forEach(func => func(gamepad_data));
+            }
+            else
+            {
+                let index = gamepad.index;
+                this.gamepads.delete(index);
+                this.events.disconnect.forEach(func => func(index));
+            }
+        }
+        addGamepad(gamepad)
+        {
+            let gamepadData = new GamepadData(gamepad);
+            this.gamepads.set(gamepad.index,gamepadData);
+            return gamepadData;
+        }
+        update()
+        {
+            let gamepads = navigator.getGamepads ? navigator.getGamepads() : (navigator.webkitGetGamepads ? navigator.webitGetGamepads : []);
+            for (let i = gamepads.length; i--;)
+            {
+                let gamepad = gamepads[i];
+                if (gamepad)
+                {
+                    if (this.gamepads.has(i))
+                        this.gamepads.get(i).update(gamepad);
+                    else
+                    {
+                        this.addGamepad(gamepad);
+                        let gamepadData = this.gamepads.get(gamepad.index);
+                        this.events.connect.forEach((func,i) => func(gamepadData));
+                    }
+                }
+            }
+        }
+    }
+    //#endregion 
 
     //#region Hitbox
     class Hitbox
@@ -875,6 +1004,7 @@ const LIB = {};
     LIB.misc = {generateKeys};
     LIB.math = { appr, actorCollision };
     LIB.debounce = debounce;
+    LIB.GamepadManager = GamepadManager;
     LIB.TileMap = TileMap;
     LIB.DemoScene = DemoScene;
     LIB.MouseManager = MouseManager;
