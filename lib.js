@@ -489,6 +489,7 @@ const LIB = {};
             this.xRemainder = 0;
             this.yRemainder = 0;
             this.stateManager = new StateManager();
+            this.animationManager = new AnimationManager();
             this.hitbox = new Hitbox(w,h);
         }
         update(){};
@@ -735,6 +736,121 @@ const LIB = {};
         }
     }
     //#endregion
+    
+    //#region TileMap
+    class TileMap
+    {
+        map;
+        mapWidth;
+        mapHeight;
+        tileWidth;
+        tileHeight;
+        mapWidthPixels;
+        mapHeightPixels;
+        collidable;
+        constructor(scene,mapConfig,collidable)
+        {
+            this.collidable = collidable;
+            this.map = mapConfig.map;
+            this.mapWidth = mapConfig.mapWidth;
+            this.mapHeight = mapConfig.mapHeight;
+            this.tileWidth = mapConfig.tileWidth;
+            this.tileHeight = mapConfig.tileHeight;
+            this.mapWidthPixels = this.tileWidth * this.mapWidth;
+            this.mapHeightPixels = this.tileHeight * this.mapHeight;
+        }
+        collideAt(x,y)
+        {
+            return this.collidable.includes(this.getTile(x,y)[0]);
+        }
+        getTile(x,y)
+        {
+            x = Math.floor(x / this.tileWidth);
+            y = Math.floor(y / this.tileHeight);
+            return [this.map[y * this.mapWidth + x],x,y];
+        }
+        setTile(id,x,y)
+        {
+            x /= this.tileWidth;
+            y /= this.tileHeight;
+            this.map[y * this.mapWidth + x] = id;
+        }
+    }
+    //#endregion
+
+    //#region Animation
+    class Animation
+    {
+        onFinish = null;
+        frames;
+        index = 0;
+        fps;
+        frameCount;
+        timer = 0;
+        loop = false;
+        constructor(frameKeys,fps,loop)
+        {
+            this.frames = frameKeys;
+            this.frameCount = frameKeys.length;
+            this.fps = 1 / fps;
+            this.timer = this.fps;
+            this.loop = loop;
+        }
+        reset()
+        {
+            this.index = 0;
+            this.timer = this.fps;
+        }
+        update(dt)
+        {
+            this.timer -= dt;
+            if (this.timer <= 0)
+            {
+                this.index++;
+                if (this.index >= this.frameCount)
+                {
+                    if (this.onFinish)
+                        this.onFinish();
+                    this.index = 0;
+                }
+                this.timer = this.fps;
+            }
+        }
+        getKey()
+        {
+            return this.frames[this.index];
+        }
+    }
+    class AnimationManager
+    {
+        animations = {};
+        active = null;
+        constructor()
+        {
+
+        }
+        add(key,anim,defaultAnim = false)
+        {
+            this.animations[key] = anim;
+            if (defaultAnim)
+                this.active = key;
+        }
+        set(key)
+        {
+            this.active = key;
+            if (this.active != key)
+                this.animations[key].reset();
+        }
+        update(dt)
+        {
+            this.animations[this.active].update(dt);
+        }
+        getKey()
+        {
+            return this.animations[this.active].getKey();
+        }
+    }
+    //#endregion
     const appr = (val,target,amount) => (
         val > target ? Math.max(val - amount, target) : Math.min(val + amount,target)
     );
@@ -750,8 +866,16 @@ const LIB = {};
             pos1.y + hb1.top > pos2.y + hb2.bottom
         ); 
     }
+    const generateKeys = (key,len) => {
+        let result = [];
+        for (let i = 0; i < len; i++)
+            result.push(key + (i > 9 ? i : '0' + i));
+        return result;
+    }
+    LIB.misc = {generateKeys};
     LIB.math = { appr, actorCollision };
     LIB.debounce = debounce;
+    LIB.TileMap = TileMap;
     LIB.DemoScene = DemoScene;
     LIB.MouseManager = MouseManager;
     LIB.Button = Button;
@@ -761,4 +885,6 @@ const LIB = {};
     LIB.Game = Game;
     LIB.Scene = Scene;
     LIB.StateManager = StateManager;
+    LIB.Animation = Animation;
+    LIB.AnimationManager = AnimationManager;
 }())
